@@ -1,6 +1,7 @@
 package main
 
 import (
+	"gopkg.in/alecthomas/kingpin.v1"
 	"log"
 	"net/http"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"time"
+	"strconv"
 )
 
 type ApplicationResponse struct {
@@ -31,10 +33,18 @@ type ApplicationSummary struct {
 	InstanceCount	float64	`json:"instance_count"`
 }
 
+type Config struct {
+	NRAppId		int		`json:"nr_app_id"`
+	NRApiKey	string		`json:"nr_api_key"`
+	ApiKey		string		`json:"api_key"`
+	Tags		[]string	`json:"tags"`
+}
+
 type Sample struct {
-	Appid 	string
+	ApiKey 	string
 	Name	string
 	Value	float64
+	Tags	[]string
 }
 
 type Metric struct {
@@ -45,7 +55,8 @@ type Metric struct {
 	Tags	[]string	`json:"tags"`
 }
 
-func poll(appid string, apikey string, samples chan Sample) {
+func poll(config Config, samples chan Sample) {
+	appid := strconv.Itoa(config.NRAppId)
 	parts := []string{"https://api.newrelic.com/v2/applications/", appid, ".json"}
 	url := strings.Join(parts, "")
 
@@ -55,7 +66,7 @@ func poll(appid string, apikey string, samples chan Sample) {
 		log.Printf("error: new request: %s\n", err)
 		return
 	}
-	req.Header.Set("X-Api-Key", apikey)
+	req.Header.Set("X-Api-Key", config.NRApiKey)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -76,12 +87,15 @@ func poll(appid string, apikey string, samples chan Sample) {
 		return
 	}
 
-	var sample Sample
-	sample = Sample{Appid:appid,Name:"response_time",Value:app.Application.ApplicationSummary.ResponseTime,}
+	sample := Sample{Tags:config.Tags,ApiKey:config.ApiKey,}
+	sample.Name = appid + " response_time"
+	sample.Value = app.Application.ApplicationSummary.ResponseTime
 	samples <- sample
-	sample = Sample{Appid:appid,Name:"throughput",Value:app.Application.ApplicationSummary.Throughput,}
+	sample.Name = appid + " throughput"
+	sample.Value = app.Application.ApplicationSummary.Throughput
 	samples <- sample
-	sample = Sample{Appid:appid,Name:"error_rate",Value:app.Application.ApplicationSummary.ErrorRate,}
+	sample.Name = appid + " error_rate"
+	sample.Value = app.Application.ApplicationSummary.ErrorRate
 	samples <- sample
 }
 
@@ -92,8 +106,26 @@ func dispatch(samples chan Sample) {
 	}
 }
 
+var (
+	configPath = kingpin.Arg("config", "Path to nudger config").Default("nudger.json").String()
+)
+
 func main() {
-	fmt.Println("nudgers gonna nudge")
+	kingpin.Version("1.0.0")
+	kingpin.Parse()
+
+	file, err := ioutil.ReadFile(*configPath)
+	if err != nil {
+		log.Fatalf("fatal: Couldn't read config %s: %s\n", *configPath, err)
+	}
+
+	var config []Config
+	err = json.Unmarshal(file, &config)
+	if err != nil {
+		log.Fatalf("fatal: Couldn't decode config %s: %s\n", *configPath, err)
+	}
+
+	fmt.Println("nudgers gonna nudge nudge nudge nudge")
 
 	samples := make(chan Sample)
 	go dispatch(samples)
@@ -102,10 +134,10 @@ func main() {
 	for {
 		select {
 		case <- tick:
-			log.Println("tick")
-			appid := "6337276"
-			apikey := "a42db8f0d605f19835ca9cc1c535adba9bfa003b3e75dd2"
-			go poll(appid, apikey, samples)
+			log.Println("Tick")
+			for _, c := range(config) {
+				go poll(c, samples)
+			}
 		}
 	}
 }
