@@ -1,0 +1,20 @@
+- name: Pull latest image
+  command: gcloud preview docker pull gcr.io/rad-alert-01/nudger
+
+- name: Test if nudger container is running
+  command: docker inspect nudger
+  ignore_errors: True
+  register: has_container
+- debug: msg="Container is running"
+  when: has_container|success
+- debug: msg="Container is not running"
+  when: has_container|failed
+- name: Kill running container
+  command: docker kill nudger
+  when: has_container|success
+- name: Remove container
+  command: docker rm nudger
+  when: has_container|success
+
+- name: Run container
+  command: docker run --detach --name nudger gcr.io/rad-alert-01/nudger
