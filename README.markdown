@@ -20,3 +20,14 @@ git clone git@github.com:radalert/nudger.git
 cd nudger
 foreman start
 ```
+
+## Debugging
+
+Nudger is run out of a Docker container on our web infrastructure.
+
+You can tail the logs to see what it's doing:
+
+```
+ssh 23.251.149.80
+docker logs -f nudger
+```
