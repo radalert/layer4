@@ -18,6 +18,7 @@ The CD pipeline builds a Docker image and deploys it via Ansible.
 ``` bash
 git clone git@github.com:radalert/nudger.git
 cd nudger
+cp nudger.sample.json nudger.test.json
 foreman start
 ```
 
