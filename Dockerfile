@@ -7,4 +7,4 @@ WORKDIR /app
 ENV GOPATH /app/_vendor
 RUN go build -v nudger.go
 # Run it
-CMD ./nudger
+CMD ./nudger nudger.sample.json
