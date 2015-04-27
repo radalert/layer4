@@ -1,58 +1,58 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"gopkg.in/alecthomas/kingpin.v1"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"fmt"
-	"strings"
-	"io/ioutil"
-	"encoding/json"
-	"time"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type ApplicationResponse struct {
-	Application	Application
+	Application Application
 }
 
 type Application struct {
-	Id					int		`json:"id"`
-	Name				string	`json:"name"`
-	Reporting			bool	`json:"reporting"`
-	ApplicationSummary	ApplicationSummary	`json:"application_summary"`
+	Id                 int                `json:"id"`
+	Name               string             `json:"name"`
+	Reporting          bool               `json:"reporting"`
+	ApplicationSummary ApplicationSummary `json:"application_summary"`
 }
 
 type ApplicationSummary struct {
-	ResponseTime	float64 `json:"response_time"`
-	Throughput		float64	`json:"throughput"`
-	ErrorRate		float64	`json:"error_rate"`
-	ApdexTarget		float64	`json:"apdex_target"`
-	ApdexScore		float64	`json:"apdex_score"`
-	HostCount		float64	`json:"host_count"`
-	InstanceCount	float64	`json:"instance_count"`
+	ResponseTime  float64 `json:"response_time"`
+	Throughput    float64 `json:"throughput"`
+	ErrorRate     float64 `json:"error_rate"`
+	ApdexTarget   float64 `json:"apdex_target"`
+	ApdexScore    float64 `json:"apdex_score"`
+	HostCount     float64 `json:"host_count"`
+	InstanceCount float64 `json:"instance_count"`
 }
 
 type Config struct {
-	NRAppId		int		`json:"nr_app_id"`
-	NRApiKey	string		`json:"nr_api_key"`
-	ApiKey		string		`json:"api_key"`
-	Tags		[]string	`json:"tags"`
+	NRAppId  int      `json:"nr_app_id"`
+	NRApiKey string   `json:"nr_api_key"`
+	ApiKey   string   `json:"api_key"`
+	Tags     []string `json:"tags"`
 }
 
 type Sample struct {
-	ApiKey 	string
-	Name	string
-	Value	float64
-	Tags	[]string
+	ApiKey string
+	Name   string
+	Value  float64
+	Tags   []string
 }
 
 type Metric struct {
-	ApiKey	string		`json:"api_key"`
-	Check	string		`json:"check"`
-	Metric	float64		`json:"metric"`
-	TTL		int			`json:"ttl"`
-	Tags	[]string	`json:"tags"`
+	ApiKey string   `json:"api_key"`
+	Check  string   `json:"check"`
+	Metric float64  `json:"metric"`
+	TTL    int      `json:"ttl"`
+	Tags   []string `json:"tags"`
 }
 
 func poll(config Config, samples chan Sample) {
@@ -87,7 +87,7 @@ func poll(config Config, samples chan Sample) {
 		return
 	}
 
-	sample := Sample{Tags:config.Tags,ApiKey:config.ApiKey,}
+	sample := Sample{Tags: config.Tags, ApiKey: config.ApiKey}
 	sample.Name = appid + " response_time"
 	sample.Value = app.Application.ApplicationSummary.ResponseTime
 	samples <- sample
@@ -101,7 +101,7 @@ func poll(config Config, samples chan Sample) {
 
 func dispatch(samples chan Sample) {
 	for {
-		sample := <- samples
+		sample := <-samples
 		log.Printf("dispatch: %+v", sample)
 	}
 }
@@ -133,9 +133,9 @@ func main() {
 	tick := time.NewTicker(time.Second * 30).C
 	for {
 		select {
-		case <- tick:
+		case <-tick:
 			log.Println("Tick")
-			for _, c := range(config) {
+			for _, c := range config {
 				go poll(c, samples)
 			}
 		}
