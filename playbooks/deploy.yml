@@ -1,6 +1,7 @@
 ---
 - name: Deploy the application
-  hosts: web
+  hosts:
+    - nudger
   remote_user: root
   roles:
     - nudger
