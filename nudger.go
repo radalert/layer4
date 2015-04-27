@@ -40,13 +40,6 @@ type Config struct {
 	Tags     []string `json:"tags"`
 }
 
-type Sample struct {
-	ApiKey string
-	Name   string
-	Value  float64
-	Tags   []string
-}
-
 type Metric struct {
 	ApiKey string   `json:"api_key"`
 	Check  string   `json:"check"`
@@ -55,7 +48,7 @@ type Metric struct {
 	Tags   []string `json:"tags"`
 }
 
-func poll(config Config, samples chan Sample) {
+func poll(config Config, metrics chan Metric) {
 	appid := strconv.Itoa(config.NRAppId)
 	parts := []string{"https://api.newrelic.com/v2/applications/", appid, ".json"}
 	url := strings.Join(parts, "")
@@ -87,22 +80,22 @@ func poll(config Config, samples chan Sample) {
 		return
 	}
 
-	sample := Sample{Tags: config.Tags, ApiKey: config.ApiKey}
-	sample.Name = appid + " response_time"
-	sample.Value = app.Application.ApplicationSummary.ResponseTime
-	samples <- sample
-	sample.Name = appid + " throughput"
-	sample.Value = app.Application.ApplicationSummary.Throughput
-	samples <- sample
-	sample.Name = appid + " error_rate"
-	sample.Value = app.Application.ApplicationSummary.ErrorRate
-	samples <- sample
+	m := Metric{Tags: config.Tags, ApiKey: config.ApiKey}
+	m.Check = appid + " response_time"
+	m.Metric = app.Application.ApplicationSummary.ResponseTime
+	metrics <- m
+	m.Check = appid + " throughput"
+	m.Metric = app.Application.ApplicationSummary.Throughput
+	metrics <- m
+	m.Check = appid + " error_rate"
+	m.Metric = app.Application.ApplicationSummary.ErrorRate
+	metrics <- m
 }
 
-func dispatch(samples chan Sample) {
+func dispatch(metrics chan Metric) {
 	for {
-		sample := <-samples
-		log.Printf("dispatch: %+v", sample)
+		metric := <-metrics
+		log.Printf("dispatch: %+v", metric)
 	}
 }
 
@@ -127,16 +120,16 @@ func main() {
 
 	fmt.Println("nudgers gonna nudge nudge nudge nudge")
 
-	samples := make(chan Sample)
-	go dispatch(samples)
+	metrics := make(chan Metric)
+	go dispatch(metrics)
 
 	tick := time.NewTicker(time.Second * 30).C
 	for {
 		select {
 		case <-tick:
-			log.Println("Tick")
+			log.Println("tick")
 			for _, c := range config {
-				go poll(c, samples)
+				go poll(c, metrics)
 			}
 		}
 	}
