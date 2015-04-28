@@ -12,6 +12,13 @@ import (
 	"time"
 )
 
+type Config struct {
+	Interval     time.Duration
+	MasterApiKey string
+	Url          string
+	Timeout      time.Duration
+}
+
 type ApplicationResponse struct {
 	Application Application
 }
@@ -33,7 +40,7 @@ type ApplicationSummary struct {
 	InstanceCount float64 `json:"instance_count"`
 }
 
-type Config struct {
+type Check struct {
 	NRAppId  int      `json:"nr_app_id"`
 	NRApiKey string   `json:"nr_api_key"`
 	ApiKey   string   `json:"api_key"`
@@ -48,39 +55,39 @@ type Metric struct {
 	Tags   []string `json:"tags"`
 }
 
-func poll(config Config, metrics chan Metric) {
-	appid := strconv.Itoa(config.NRAppId)
+func PollNR(check Check, metrics chan Metric) {
+	appid := strconv.Itoa(check.NRAppId)
 	parts := []string{"https://api.newrelic.com/v2/applications/", appid, ".json"}
 	url := strings.Join(parts, "")
 
 	client := &http.Client{Timeout: time.Second * 5}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Printf("error: new request: %s\n", err)
+		log.Printf("[error] new request: %s\n", err)
 		return
 	}
-	req.Header.Set("X-Api-Key", config.NRApiKey)
+	req.Header.Set("X-Api-Key", check.NRApiKey)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("error: client do: %s\n", err)
+		log.Printf("[error] client do: %s\n", err)
 		return
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("error: Couldn't read body: %s\n", err)
+		log.Printf("[error] couldn't read body: %s\n", err)
 		return
 	}
 
 	var app ApplicationResponse
 	err = json.Unmarshal(body, &app)
 	if err != nil {
-		log.Printf("error: Couldn't decode json: %s", err)
+		log.Printf("[error] couldn't decode json: %s", err)
 		return
 	}
 
-	m := Metric{Tags: config.Tags, ApiKey: config.ApiKey}
+	m := Metric{Tags: check.Tags, ApiKey: check.ApiKey}
 	m.Check = appid + " response_time"
 	m.Metric = app.Application.ApplicationSummary.ResponseTime
 	metrics <- m
@@ -92,10 +99,50 @@ func poll(config Config, metrics chan Metric) {
 	metrics <- m
 }
 
+func PollChecks(config Config, checks *[]Check) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("[error] unhandled panic when polling for checks:", r)
+		}
+	}()
+
+	tick := time.NewTicker(config.Interval).C
+	for {
+		select {
+		case <-tick:
+			log.Println("[info] tick: checks")
+			client := &http.Client{Timeout: config.Timeout}
+			req, err := http.NewRequest("GET", config.Url, nil)
+			if err != nil {
+				log.Printf("[error] new request: %s\n", err)
+				return
+			}
+			req.SetBasicAuth(config.MasterApiKey, "")
+
+			resp, err := client.Do(req)
+			if err != nil {
+				log.Printf("[error] client do: %s\n", err)
+				return
+			}
+
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Printf("[error] couldn't read body: %s\n", err)
+				return
+			}
+			err = json.Unmarshal(body, &checks)
+			if err != nil {
+				log.Printf("[error] couldn't decode checks: %s\n", err)
+				log.Printf("[error] response body: %s\n", string(body))
+			}
+		}
+	}
+}
+
 func dispatch(metrics chan Metric) {
 	for {
 		metric := <-metrics
-		log.Printf("dispatch: %+v", metric)
+		log.Printf("[debug] dispatch: %+v", metric)
 	}
 }
 
@@ -107,18 +154,17 @@ func main() {
 	kingpin.Version("1.0.0")
 	kingpin.Parse()
 
-	file, err := ioutil.ReadFile(*configPath)
-	if err != nil {
-		log.Fatalf("fatal: Couldn't read config %s: %s\n", *configPath, err)
-	}
-
-	var config []Config
-	err = json.Unmarshal(file, &config)
-	if err != nil {
-		log.Fatalf("fatal: Couldn't decode config %s: %s\n", *configPath, err)
-	}
-
 	fmt.Println("nudgers gonna nudge nudge nudge nudge")
+
+	config := Config{
+		Interval:     time.Second * 30,
+		MasterApiKey: "r4d4l3rt",
+		Url:          "http://127.0.0.1:9292/api/v1/checks/new_relic.nudger",
+		Timeout:      time.Second * 5,
+	}
+
+	var checks []Check
+	go PollChecks(config, &checks)
 
 	metrics := make(chan Metric)
 	go dispatch(metrics)
@@ -127,9 +173,9 @@ func main() {
 	for {
 		select {
 		case <-tick:
-			log.Println("tick")
-			for _, c := range config {
-				go poll(c, metrics)
+			log.Println("[info] tick: new relic")
+			for _, c := range checks {
+				go PollNR(c, metrics)
 			}
 		}
 	}
