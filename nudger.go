@@ -115,25 +115,26 @@ func PollChecks(config Config, checks *[]Check) {
 			req, err := http.NewRequest("GET", config.Url, nil)
 			if err != nil {
 				log.Printf("[error] new request: %s\n", err)
-				return
+				continue
 			}
 			req.SetBasicAuth(config.MasterApiKey, "")
 
 			resp, err := client.Do(req)
 			if err != nil {
 				log.Printf("[error] client do: %s\n", err)
-				return
+				continue
 			}
 
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
 				log.Printf("[error] couldn't read body: %s\n", err)
-				return
+				continue
 			}
 			err = json.Unmarshal(body, &checks)
 			if err != nil {
 				log.Printf("[error] couldn't decode checks: %s\n", err)
 				log.Printf("[error] response body: %s\n", string(body))
+				continue
 			}
 		}
 	}
