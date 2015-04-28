@@ -147,7 +147,8 @@ func dispatch(metrics chan Metric) {
 }
 
 var (
-	configPath = kingpin.Arg("config", "Path to nudger config").Default("nudger.json").String()
+	apikey = kingpin.Flag("apikey", "Master API key for authenticating to console").Default("r4d4l3rt").OverrideDefaultFromEnvar("APIKEY").String()
+	url    = kingpin.Flag("endpoint", "URL endpoint to fetch checks").Default("https://radalert.io/api/v1/checks/new_relic.nudger").OverrideDefaultFromEnvar("ENDPOINT").String()
 )
 
 func main() {
@@ -158,10 +159,11 @@ func main() {
 
 	config := Config{
 		Interval:     time.Second * 30,
-		MasterApiKey: "r4d4l3rt",
-		Url:          "http://127.0.0.1:9292/api/v1/checks/new_relic.nudger",
+		MasterApiKey: *apikey,
+		Url:          *url,
 		Timeout:      time.Second * 5,
 	}
+	log.Printf("[debug] config: %+v\n", config)
 
 	var checks []Check
 	go PollChecks(config, &checks)
@@ -174,6 +176,7 @@ func main() {
 		select {
 		case <-tick:
 			log.Println("[info] tick: new relic")
+			log.Println("[info] number of checks:", len(checks))
 			for _, c := range checks {
 				go PollNR(c, metrics)
 			}
