@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"testing"
@@ -21,9 +22,12 @@ func MockApi(bind string) {
 	log.Fatal(http.ListenAndServe(bind, nil))
 }
 
-func MockPacemaker(bind string, requests chan bool) {
+func MockPacemaker(bind string, requests chan string) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		requests <- true
+		var m Metric
+		body, _ := ioutil.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &m)
+		requests <- m.Check
 	})
 	log.Fatal(http.ListenAndServe(bind, nil))
 }
@@ -48,7 +52,7 @@ func TestPollChecks(t *testing.T) {
 }
 
 func TestDispatch(t *testing.T) {
-	requests := make(chan bool)
+	requests := make(chan string)
 	go MockPacemaker("127.0.0.1:42224", requests)
 
 	config := Config{
@@ -58,15 +62,16 @@ func TestDispatch(t *testing.T) {
 	go Dispatch(config, metrics)
 	go func() {
 		time.Sleep(1 * time.Second)
-		requests <- false
+		requests <- "false"
 	}()
 
-	metrics <- Metric{}
+	metrics <- Metric{Check: "true"}
 
-	switch <-requests {
-	case true:
+	request := <-requests
+	switch request {
+	case "true":
 		t.Logf("Dispatched.")
-	case false:
+	case "false":
 		t.Fatal("Expected dispatch to pacemaker, got nothing after 1 second.")
 	}
 }
