@@ -90,13 +90,13 @@ func PollNR(check Check, metrics chan Metric) {
 	}
 
 	m := Metric{Tags: check.Tags, ApiKey: check.ApiKey}
-	m.Check = appid + " response_time"
+	m.Check = app.Application.Name + ": response time"
 	m.Metric = app.Application.ApplicationSummary.ResponseTime
 	metrics <- m
-	m.Check = appid + " throughput"
+	m.Check = app.Application.Name + ": throughput"
 	m.Metric = app.Application.ApplicationSummary.Throughput
 	metrics <- m
-	m.Check = appid + " error_rate"
+	m.Check = app.Application.Name + ": error rate"
 	m.Metric = app.Application.ApplicationSummary.ErrorRate
 	metrics <- m
 }
