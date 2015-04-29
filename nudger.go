@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"gopkg.in/alecthomas/kingpin.v1"
@@ -15,7 +16,8 @@ import (
 type Config struct {
 	Interval     time.Duration
 	MasterApiKey string
-	Url          string
+	Api          string
+	Pacemaker    string
 	Timeout      time.Duration
 }
 
@@ -63,27 +65,27 @@ func PollNR(check Check, metrics chan Metric) {
 	client := &http.Client{Timeout: time.Second * 5}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Printf("[error] new request: %s\n", err)
+		log.Printf("[error] PollNR: new request: %s\n", err)
 		return
 	}
 	req.Header.Set("X-Api-Key", check.NRApiKey)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[error] client do: %s\n", err)
+		log.Printf("[error] PollNR: client do: %s\n", err)
 		return
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("[error] couldn't read body: %s\n", err)
+		log.Printf("[error] PollNR: couldn't read body: %s\n", err)
 		return
 	}
 
 	var app ApplicationResponse
 	err = json.Unmarshal(body, &app)
 	if err != nil {
-		log.Printf("[error] couldn't decode json: %s", err)
+		log.Printf("[error] PollNR: couldn't decode json: %s", err)
 		return
 	}
 
@@ -102,7 +104,7 @@ func PollNR(check Check, metrics chan Metric) {
 func PollChecks(config Config, checks *[]Check) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Println("[error] unhandled panic when polling for checks:", r)
+			log.Println("[error] PollChecks: unhandled panic when polling for checks:", r)
 		}
 	}()
 
@@ -110,46 +112,78 @@ func PollChecks(config Config, checks *[]Check) {
 	for {
 		select {
 		case <-tick:
-			log.Println("[info] tick: checks")
+			log.Println("[info] PollChecks: tick")
 			client := &http.Client{Timeout: config.Timeout}
-			req, err := http.NewRequest("GET", config.Url, nil)
+			req, err := http.NewRequest("GET", config.Api, nil)
 			if err != nil {
-				log.Printf("[error] new request: %s\n", err)
+				log.Printf("[error] PollChecks: new request: %s\n", err)
 				continue
 			}
 			req.SetBasicAuth(config.MasterApiKey, "")
 
 			resp, err := client.Do(req)
 			if err != nil {
-				log.Printf("[error] client do: %s\n", err)
+				log.Printf("[error] PollChecks: client do: %s\n", err)
 				continue
 			}
 
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				log.Printf("[error] couldn't read body: %s\n", err)
+				log.Printf("[error] PollChecks: couldn't read body: %s\n", err)
 				continue
 			}
 			err = json.Unmarshal(body, &checks)
 			if err != nil {
-				log.Printf("[error] couldn't decode checks: %s\n", err)
-				log.Printf("[error] response body: %s\n", string(body))
+				log.Printf("[error] PollChecks: couldn't decode checks: %s\n", err)
+				log.Printf("[error] PollChecks: response body: %s\n", string(body))
 				continue
 			}
 		}
 	}
 }
 
-func dispatch(metrics chan Metric) {
+func Dispatch(config Config, metrics chan Metric) {
+	url := config.Pacemaker
 	for {
 		metric := <-metrics
-		log.Printf("[debug] dispatch: %+v", metric)
+		log.Printf("[debug] Dispatch: %+v", metric)
+
+		body, err := json.Marshal(metric)
+		if err != nil {
+			log.Printf("[error] Dispatch: JSON marshal: %s\n", err)
+			continue
+		}
+		log.Printf("[debug] Dispatch: JSON marshal: %s", string(body))
+
+		client := &http.Client{Timeout: time.Second * 5}
+		req, err := http.NewRequest("POST", url, bytes.NewReader(body))
+		if err != nil {
+			log.Printf("[error] Dispatch: new request: %s\n", err)
+			continue
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("[error] Dispatch: client do: %s\n", err)
+			continue
+		}
+
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Printf("[error] Dispatch: couldn't read body: %s\n", err)
+			continue
+		}
+
+		if resp.StatusCode != 200 {
+			log.Printf("[error] Dispatch: Pacemaker returned HTTP %d: %s\n", resp.StatusCode, string(body))
+		}
 	}
 }
 
 var (
-	apikey = kingpin.Flag("apikey", "Master API key for authenticating to console").Default("r4d4l3rt").OverrideDefaultFromEnvar("APIKEY").String()
-	url    = kingpin.Flag("endpoint", "URL endpoint to fetch checks").Default("https://radalert.io/api/v1/checks/new_relic.nudger").OverrideDefaultFromEnvar("ENDPOINT").String()
+	apikey    = kingpin.Flag("apikey", "Master API key for authenticating to console").Default("r4d4l3rt").OverrideDefaultFromEnvar("APIKEY").String()
+	api       = kingpin.Flag("endpoint", "API endpoint to fetch checks").Default("https://radalert.io/api/v1/checks/new_relic.nudger").OverrideDefaultFromEnvar("API").String()
+	pacemaker = kingpin.Flag("pacemaker", "Pacemaker instance to submit heartbeats to").Default("http://130.211.158.50:7223").OverrideDefaultFromEnvar("PACEMAKER").String()
 )
 
 func main() {
@@ -161,23 +195,24 @@ func main() {
 	config := Config{
 		Interval:     time.Second * 30,
 		MasterApiKey: *apikey,
-		Url:          *url,
+		Api:          *api,
+		Pacemaker:    *pacemaker,
 		Timeout:      time.Second * 5,
 	}
-	log.Printf("[debug] config: %+v\n", config)
+	log.Printf("[debug] Main: config: %+v\n", config)
 
 	var checks []Check
 	go PollChecks(config, &checks)
 
 	metrics := make(chan Metric)
-	go dispatch(metrics)
+	go Dispatch(config, metrics)
 
 	tick := time.NewTicker(time.Second * 30).C
 	for {
 		select {
 		case <-tick:
-			log.Println("[info] tick: new relic")
-			log.Println("[info] number of checks:", len(checks))
+			log.Println("[info] Main: tick")
+			log.Println("[info] Main: number of checks:", len(checks))
 			for _, c := range checks {
 				go PollNR(c, metrics)
 			}
