@@ -26,7 +26,7 @@ func TestPollChecks(t *testing.T) {
 	config := Config{
 		Interval:     1 * time.Millisecond,
 		MasterApiKey: "r4d4l3rt",
-		Url:          "http://127.0.0.1:42424/api/v1/checks/new_relic.nudger",
+		Api:          "http://127.0.0.1:42424/api/v1/checks/new_relic.nudger",
 		Timeout:      5 * time.Second,
 	}
 	var checks []Check
