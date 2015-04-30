@@ -89,7 +89,7 @@ func PollNR(check Check, metrics chan Metric) {
 		return
 	}
 
-	m := Metric{Tags: check.Tags, ApiKey: check.ApiKey}
+	m := Metric{Tags: check.Tags, ApiKey: check.ApiKey, TTL: 400}
 	m.Check = app.Application.Name + ": response time"
 	m.Metric = app.Application.ApplicationSummary.ResponseTime
 	metrics <- m
