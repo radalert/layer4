@@ -1,0 +1,1 @@
+taut: GOPATH="$(pwd)/_vendor:$GOPATH" go run taut.go
