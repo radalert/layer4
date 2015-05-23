@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"gopkg.in/alecthomas/kingpin.v1"
 	"io/ioutil"
@@ -18,9 +18,38 @@ type Config struct {
 	SlackWebhookEndpoint string
 }
 
-type SlackPayload struct {
-	Username string `json:"username"`
-	Text     string `json:"text"`
+// Courtesy of https://github.com/paulhammond/slackcat/blob/master/slackcat.go
+type SlackMsg struct {
+	Channel   string `json:"channel"`
+	Username  string `json:"username,omitempty"`
+	Text      string `json:"text"`
+	Parse     string `json:"parse"`
+	IconEmoji string `json:"icon_emoji,omitempty"`
+}
+
+func (m SlackMsg) Encode() (string, error) {
+	b, err := json.Marshal(m)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+func (m SlackMsg) Post(WebhookURL string) error {
+	encoded, err := m.Encode()
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.PostForm(WebhookURL, url.Values{"payload": {encoded}})
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.New("Not OK")
+	}
+	return nil
 }
 
 type Alert struct {
@@ -33,10 +62,12 @@ type Alert struct {
 func slackHandler(w http.ResponseWriter, r *http.Request) {
 }
 
+// Pacemaker input handler
 type pacemakerHandler struct {
 	alerts chan Alert
 }
 
+// ServeHTTP handles requests from the Pacemaker
 func (ph *pacemakerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -55,6 +86,7 @@ func (ph *pacemakerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
+// Listen handles http serving for Pacemaker and Slack inputs.
 func Listen(config Config, alerts chan Alert) {
 	router := http.NewServeMux()
 	router.HandleFunc("/slack", slackHandler)
@@ -69,25 +101,13 @@ func SlackSender(config Config, alerts chan Alert) {
 	for {
 		alert := <-alerts
 		log.Printf("%+v\n", alert)
-		payload := SlackPayload{Username: "Rad Alert", Text: "Anomaly Detected"}
-		value, err := json.Marshal(payload)
-		if err != nil {
-			log.Printf("[error] Slack: JSON marshal: %s\n", err)
-			continue
+		msg := SlackMsg{
+			Username: "Rad Alert",
+			Text:     "Anomaly detected for *'" + alert.Check + "'*",
 		}
-
-		client := &http.Client{Timeout: config.Timeout}
-		urlStr := config.SlackWebhookEndpoint
-		form := url.Values{}
-		form.Add("payload", string(value))
-		req, err := http.NewRequest("POST", urlStr, bytes.NewReader([]byte(form.Encode())))
+		err := msg.Post(config.SlackWebhookEndpoint)
 		if err != nil {
-			log.Printf("[error] Slack: new request: %s\n", err)
-			continue
-		}
-		_, err = client.Do(req)
-		if err != nil {
-			log.Printf("[error] Slack: client do: %s\n", err)
+			log.Printf("[error] Slack: msg post: %s\n", err)
 			continue
 		}
 	}

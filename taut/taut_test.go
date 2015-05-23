@@ -11,9 +11,10 @@ import (
 	"time"
 )
 
-func MockSlack(bind string, success chan bool) {
+func MockSlack(t *testing.T, bind string, success chan bool) {
 	http.HandleFunc("/services/ABC/123", func(w http.ResponseWriter, r *http.Request) {
 		body, _ := ioutil.ReadAll(r.Body)
+		t.Logf("body: %s", string(body))
 		values, _ := url.ParseQuery(string(body))
 		if len(values.Get("payload")) > 0 {
 			success <- true
@@ -57,7 +58,6 @@ func TestAlertFromPacemaker(t *testing.T) {
 	}
 
 	body, _ = ioutil.ReadAll(resp.Body)
-	t.Logf("Pacemaker POST response: %+v\n", resp)
 	t.Logf("Pacemaker POST response body: %s\n", body)
 
 	if len(alerts) != 1 {
@@ -68,7 +68,7 @@ func TestAlertFromPacemaker(t *testing.T) {
 func TestSendToSlack(t *testing.T) {
 	// Setup mock Slack webhook endpoint
 	success := make(chan bool, 10)
-	go MockSlack(":3456", success)
+	go MockSlack(t, ":3456", success)
 
 	// Dispatch an alert
 	config := Config{
