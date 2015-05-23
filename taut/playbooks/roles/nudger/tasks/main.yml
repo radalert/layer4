@@ -1,0 +1,20 @@
+- name: Pull latest image
+  command: gcloud preview docker pull gcr.io/rad-alert-01/taut
+
+- name: Test if taut container is running
+  command: docker inspect taut
+  ignore_errors: True
+  register: has_container
+- debug: msg="Container is running"
+  when: has_container|success
+- debug: msg="Container is not running"
+  when: has_container|failed
+- name: Kill running container
+  command: docker kill taut
+  when: has_container|success
+- name: Remove container
+  command: docker rm taut
+  when: has_container|success
+
+- name: Run container
+  command: docker run --detach --name taut gcr.io/rad-alert-01/taut
