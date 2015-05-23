@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"testing"
@@ -40,7 +41,9 @@ func TestMessageFromPacemaker(t *testing.T) {
 		t.Fatalf("HTTP POST should not have failed! Got: %s\n", err)
 	}
 
+	body, _ = ioutil.ReadAll(resp.Body)
 	t.Logf("Pacemaker POST response: %+v\n", resp)
+	t.Logf("Pacemaker POST response body: %s\n", body)
 
 	if len(alerts) != 1 {
 		t.Fatalf("Expected %d alert, got %d", 1, len(alerts))

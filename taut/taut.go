@@ -39,7 +39,10 @@ func (ph *pacemakerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[error] pacemakerHandler: Couldn't decode json: %s\n", err)
 		return
 	}
-	ph.alerts <- alert
+	defer func() {
+		ph.alerts <- alert
+	}()
+	w.Write([]byte("OK"))
 }
 
 func sendToSlack(alert chan Alert) {
