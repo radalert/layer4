@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"testing"
@@ -23,7 +22,7 @@ func MockSlack(t *testing.T, bind string, success chan bool) {
 			w.Write([]byte("not ok"))
 		}
 	})
-	log.Fatal(http.ListenAndServe(bind, nil))
+	t.Fatal(http.ListenAndServe(bind, nil))
 }
 
 func TestAlertFromPacemaker(t *testing.T) {
@@ -34,10 +33,10 @@ func TestAlertFromPacemaker(t *testing.T) {
 
 	// Build alert
 	alert := Alert{
-		Org:             "MyCo",
-		Check:           "shizzle.com/health",
-		AnomalyDuration: 180,
-		Tags:            []string{"shizzle", "health"},
+		Org:          "MyCo",
+		Check:        "shizzle.com/health",
+		AnomalyStart: 180,
+		Tags:         []string{"shizzle", "health"},
 	}
 	body, err := json.Marshal(alert)
 	if err != nil {
@@ -65,7 +64,7 @@ func TestAlertFromPacemaker(t *testing.T) {
 	}
 }
 
-func TestSendToSlack(t *testing.T) {
+func TestSlackSend(t *testing.T) {
 	// Setup mock Slack webhook endpoint
 	success := make(chan bool, 10)
 	go MockSlack(t, ":3456", success)
@@ -77,10 +76,10 @@ func TestSendToSlack(t *testing.T) {
 	alerts := make(chan Alert, 10)
 	go SlackSender(config, alerts)
 	alerts <- Alert{
-		Org:             "MyCo",
-		Check:           "shizzle.com/health",
-		AnomalyDuration: 180,
-		Tags:            []string{"shizzle", "health"},
+		Org:          "MyCo",
+		Check:        "shizzle.com/health",
+		AnomalyStart: 180,
+		Tags:         []string{"shizzle", "health"},
 	}
 
 	// Test Slack webhook endpoint was called
@@ -90,7 +89,7 @@ func TestSendToSlack(t *testing.T) {
 	}
 }
 
-func TestMessageFromSlack(t *testing.T) {
+func TestSlackReceive(t *testing.T) {
 	// Setup
 	alerts := make(chan Alert, 10)
 	config := Config{ListenBind: ":8082"}
@@ -99,10 +98,19 @@ func TestMessageFromSlack(t *testing.T) {
 	// http://requestb.in/1fl5kji1
 
 	// Test
-	values := url.Values{"text": {"text"}, "channel_id": {"C030YR91P"}}
+	values := url.Values{"text": {"radalert: 'spoons of hello' -1"}, "channel_id": {"C030YR91P"}}
 	url := "http://localhost" + config.ListenBind + "/slack"
-	_, err := http.PostForm(url, values)
+	resp, err := http.PostForm(url, values)
 	if err != nil {
 		t.Fatalf("HTTP POST should not have failed! Got: %s\n", err)
 	}
+	body, _ := ioutil.ReadAll(resp.Body)
+	t.Logf("Slack POST response body: %s\n", body)
+	b := "You voted -1 on 'spoons of hello'"
+	if string(body) != b {
+		t.Fatalf("Expected response to be:\n\n%s\n\nGot:\n\n%s", b, body)
+	}
+
+	// TODO(auxesis): test passing votes back to pacemaker
+	// TODO(auxesis): test authentication token matches known token
 }
