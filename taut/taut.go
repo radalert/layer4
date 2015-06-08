@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -64,7 +65,9 @@ type Alert struct {
 func slackHandler(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if e := recover(); e != nil {
+			trace := make([]byte, 1024)
 			log.Printf("[panic] Slack Handler: %s\n", e)
+			log.Printf("[panic] Backtrace: %s\n", runtime.Stack(trace, false))
 			log.Printf("[panic] Slack Handler: %s\n", r.Body)
 		}
 	}()
