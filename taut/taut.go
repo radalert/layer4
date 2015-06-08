@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"expvar"
 	"fmt"
 	"gopkg.in/alecthomas/kingpin.v1"
 	"io/ioutil"
@@ -150,6 +151,21 @@ func (ph *pacemakerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
+// a copy of expvar.expvarHandler
+func ExpvarHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	fmt.Fprintf(w, "{\n")
+	first := true
+	expvar.Do(func(kv expvar.KeyValue) {
+		if !first {
+			fmt.Fprintf(w, ",\n")
+		}
+		first = false
+		fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
+	})
+	fmt.Fprintf(w, "\n}\n")
+}
+
 // Listen handles http serving for Pacemaker and Slack inputs.
 func Listen(config Config, alerts chan Alert) {
 	router := http.NewServeMux()
@@ -157,6 +173,10 @@ func Listen(config Config, alerts chan Alert) {
 
 	ph := &pacemakerHandler{alerts: alerts}
 	router.Handle("/integrations/pacemaker", ph)
+
+	router.HandleFunc("/debug/vars", func(w http.ResponseWriter, r *http.Request) {
+		ExpvarHandler(w, r)
+	})
 
 	log.Fatal(http.ListenAndServe(config.ListenBind, router))
 }
