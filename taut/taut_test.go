@@ -44,7 +44,7 @@ func TestAlertFromPacemaker(t *testing.T) {
 	}
 
 	// Make request
-	url := "http://localhost" + config.ListenBind + "/pacemaker"
+	url := "http://localhost" + config.ListenBind + "/integrations/pacemaker"
 	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("Could not create request: %s\n", err)
@@ -99,7 +99,7 @@ func TestSlackReceive(t *testing.T) {
 
 	// Test
 	values := url.Values{"text": {"radalert: 'spoons of hello' -1"}, "channel_id": {"C030YR91P"}}
-	url := "http://localhost" + config.ListenBind + "/slack"
+	url := "http://localhost" + config.ListenBind + "/integrations/slack"
 	resp, err := http.PostForm(url, values)
 	if err != nil {
 		t.Fatalf("HTTP POST should not have failed! Got: %s\n", err)

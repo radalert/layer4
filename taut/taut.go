@@ -142,10 +142,10 @@ func (ph *pacemakerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Listen handles http serving for Pacemaker and Slack inputs.
 func Listen(config Config, alerts chan Alert) {
 	router := http.NewServeMux()
-	router.HandleFunc("/slack", slackHandler)
+	router.HandleFunc("/integrations/slack", slackHandler)
 
 	ph := &pacemakerHandler{alerts: alerts}
-	router.Handle("/pacemaker", ph)
+	router.Handle("/integrations/pacemaker", ph)
 
 	log.Fatal(http.ListenAndServe(config.ListenBind, router))
 }
