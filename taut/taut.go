@@ -62,6 +62,12 @@ type Alert struct {
 }
 
 func slackHandler(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[panic] Slack Handler: %+s\n", r.Body)
+		}
+	}()
+
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Printf("[error] slackHandler: reading body: %s\n", err)
