@@ -112,7 +112,7 @@ func TestSlackReceiveVote(t *testing.T) {
 func TestSlackReceiveHelp(t *testing.T) {
 	// Setup
 	alerts := make(chan Alert, 10)
-	config := Config{ListenBind: ":8082"}
+	config := Config{ListenBind: ":8083"}
 	go Listen(config, alerts)
 
 	// http://requestb.in/1fl5kji1
