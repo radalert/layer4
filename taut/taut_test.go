@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
@@ -89,7 +90,7 @@ func TestSlackSend(t *testing.T) {
 	}
 }
 
-func TestSlackReceive(t *testing.T) {
+func TestSlackReceiveVote(t *testing.T) {
 	// Setup
 	alerts := make(chan Alert, 10)
 	config := Config{ListenBind: ":8082"}
@@ -98,7 +99,36 @@ func TestSlackReceive(t *testing.T) {
 	// http://requestb.in/1fl5kji1
 
 	// Test
-	values := url.Values{"text": {"radalert: 'spoons of hello' -1"}, "channel_id": {"C030YR91P"}}
+	text := slack(t, config, "radalert: 'spoons of doom' -1")
+	expected := "usage: radalert: <command> [<args>]"
+	contains := strings.Contains(text, expected)
+	if contains != true {
+		t.Fatalf("Expected response to include:\n\n%s\n\nGot:\n\n%s", expected, text)
+	}
+
+	// TODO(auxesis): test passing votes back to pacemaker
+}
+
+func TestSlackReceiveHelp(t *testing.T) {
+	// Setup
+	alerts := make(chan Alert, 10)
+	config := Config{ListenBind: ":8082"}
+	go Listen(config, alerts)
+
+	// http://requestb.in/1fl5kji1
+	text := slack(t, config, "radalert: help")
+	expected := "usage: radalert: <command> [<args>]"
+	contains := strings.Contains(text, expected)
+	if contains != true {
+		t.Fatalf("Expected response to include:\n\n%s\n\nGot:\n\n%s", expected, text)
+	}
+}
+
+// TODO(auxesis): test authentication token matches known token
+
+func slack(t *testing.T, config Config, msg string) string {
+	// Test
+	values := url.Values{"text": {msg}}
 	url := "http://localhost" + config.ListenBind + "/integrations/slack"
 	resp, err := http.PostForm(url, values)
 	if err != nil {
@@ -113,12 +143,6 @@ func TestSlackReceive(t *testing.T) {
 	if len(text) == 0 {
 		t.Fatalf("No 'text' field in response from Slack endpoint")
 	}
-
-	expected := "You voted -1 on 'spoons of hello'"
-	if text != expected {
-		t.Fatalf("Expected response to be:\n\n%s\n\nGot:\n\n%s", expected, text)
-	}
-
-	// TODO(auxesis): test passing votes back to pacemaker
-	// TODO(auxesis): test authentication token matches known token
+	t.Logf("Text: %s\n", text)
+	return text
 }

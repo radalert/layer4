@@ -122,7 +122,13 @@ func handleCommand(command string) (msg string, err error) {
 
 		msg = "You voted " + result["vote"] + " on '" + result["check"] + "'"
 	default:
-		msg = "help me"
+		msg = `usage: radalert: <command> [<args>]
+
+		:books: commands:
+
+		spoons		of doom
+		another		line of text
+		`
 	}
 	return msg, err
 }
