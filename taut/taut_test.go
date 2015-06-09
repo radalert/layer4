@@ -100,7 +100,7 @@ func TestSlackReceiveVote(t *testing.T) {
 
 	// Test
 	text := slack(t, config, "radalert: 'spoons of doom' -1")
-	expected := "usage: radalert: <command> [<args>]"
+	expected := "You voted -1 on 'spoons of doom'"
 	contains := strings.Contains(text, expected)
 	if contains != true {
 		t.Fatalf("Expected response to include:\n\n%s\n\nGot:\n\n%s", expected, text)
