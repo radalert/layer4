@@ -104,11 +104,19 @@ func TestSlackReceive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("HTTP POST should not have failed! Got: %s\n", err)
 	}
+	var ack map[string]string
 	body, _ := ioutil.ReadAll(resp.Body)
 	t.Logf("Slack POST response body: %s\n", body)
-	b := "You voted -1 on 'spoons of hello'"
-	if string(body) != b {
-		t.Fatalf("Expected response to be:\n\n%s\n\nGot:\n\n%s", b, body)
+
+	err = json.Unmarshal(body, &ack)
+	text := ack["text"]
+	if len(text) == 0 {
+		t.Fatalf("No 'text' field in response from Slack endpoint")
+	}
+
+	expected := "You voted -1 on 'spoons of hello'"
+	if text != expected {
+		t.Fatalf("Expected response to be:\n\n%s\n\nGot:\n\n%s", expected, text)
 	}
 
 	// TODO(auxesis): test passing votes back to pacemaker

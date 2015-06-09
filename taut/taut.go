@@ -96,13 +96,18 @@ func slackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	command := parts[1]
-	resp, err := handleCommand(command)
+	text, err := handleCommand(command)
 	if err != nil {
 		log.Printf("[error] slackHandler: couldn't handle command: %s", err)
 		// TODO(auxesis): write outback to slack back?
 		return
 	}
-	w.Write([]byte(resp))
+	ack := SlackMsg{Text: text}
+	b, err := ack.Encode()
+	if err != nil {
+		return
+	}
+	w.Write([]byte(b))
 }
 
 func handleCommand(command string) (msg string, err error) {
