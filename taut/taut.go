@@ -129,6 +129,7 @@ func handleCommand(command string) (msg string, err error) {
 		spoons		of doom
 		another		line of text
 		`
+		msg = strings.TrimSpace(msg)
 	}
 	return msg, err
 }
