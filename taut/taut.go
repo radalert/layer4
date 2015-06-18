@@ -186,6 +186,7 @@ func Listen(config Config, alerts chan Alert) {
 
 	ph := &pacemakerHandler{alerts: alerts}
 	router.Handle("/integrations/pacemaker", ph)
+	router.Handle("/", ph)
 
 	router.HandleFunc("/debug/vars", ExpvarHandler)
 	router.HandleFunc("/integrations/slack/ping", ExpvarHandler)
