@@ -17,4 +17,4 @@
   when: has_container|success
 
 - name: Run container
-  command: docker run --publish 8828:8080 --detach --name taut gcr.io/rad-alert-01/taut
+  command: docker run --publish 8288:8080 --detach --name taut gcr.io/rad-alert-01/taut
