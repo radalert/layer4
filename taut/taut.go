@@ -129,8 +129,9 @@ func handleCommand(command string) (msg string, err error) {
 		spoons		of doom
 		another		line of text
 		`
-		msg = strings.TrimSpace(msg)
 	}
+	re := regexp.MustCompile("\n\t*")
+	msg = re.ReplaceAllLiteralString(msg, "\n")
 	return msg, err
 }
 
