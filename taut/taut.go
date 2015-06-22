@@ -161,7 +161,9 @@ func (ph *pacemakerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() {
-		ph.alerts <- alert
+		if alert.State != "OK" {
+			ph.alerts <- alert
+		}
 	}()
 	w.Write([]byte("OK"))
 }

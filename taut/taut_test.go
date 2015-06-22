@@ -34,6 +34,7 @@ func TestAlertFromPacemaker(t *testing.T) {
 
 	// Build alert
 	alert := Alert{
+		State:        "CRITICAL",
 		Org:          "MyCo",
 		Check:        "shizzle.com/health",
 		AnomalyStart: 180,
