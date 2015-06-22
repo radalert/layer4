@@ -57,6 +57,7 @@ func (m SlackMsg) Post(WebhookURL string) error {
 }
 
 type Alert struct {
+	State        string   `json:"state"`
 	Org          string   `json:"org"`
 	Check        string   `json:"check"`
 	AnomalyStart int64    `json:"anomaly_start"`
