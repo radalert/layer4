@@ -152,7 +152,7 @@ func (ph *pacemakerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[error] pacemakerHandler: %s\n", err)
 		return
 	}
-	fmt.Println("pacemaker body:", body)
+	fmt.Println("pacemaker body:", string(body))
 	var alert Alert
 	err = json.Unmarshal(body, &alert)
 	if err != nil {
