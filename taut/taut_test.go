@@ -100,7 +100,7 @@ func TestSlackReceiveVote(t *testing.T) {
 	// http://requestb.in/1fl5kji1
 
 	// Test
-	text := slack(t, config, "radalert: 'spoons of doom' -1")
+	text := slackPost(t, config, "radalert: 'spoons of doom' -1")
 	expected := "You voted -1 on 'spoons of doom'"
 	contains := strings.Contains(text, expected)
 	if contains != true {
@@ -117,7 +117,7 @@ func TestSlackReceiveHelp(t *testing.T) {
 	go Listen(config, alerts)
 
 	// http://requestb.in/1fl5kji1
-	text := slack(t, config, "radalert: help")
+	text := slackPost(t, config, "radalert: help")
 	expected := "usage: radalert: <command> [<args>]"
 	contains := strings.Contains(text, expected)
 	if contains != true {
@@ -127,7 +127,7 @@ func TestSlackReceiveHelp(t *testing.T) {
 
 // TODO(auxesis): test authentication token matches known token
 
-func slack(t *testing.T, config Config, msg string) string {
+func slackPost(t *testing.T, config Config, msg string) string {
 	// Test
 	values := url.Values{"text": {msg}}
 	url := "http://localhost" + config.ListenBind + "/integrations/slack"

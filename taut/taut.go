@@ -5,6 +5,7 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
+	"github.com/nlopes/slack"
 	"gopkg.in/alecthomas/kingpin.v1"
 	"io/ioutil"
 	"log"
@@ -24,11 +25,13 @@ type Config struct {
 
 // Courtesy of https://github.com/paulhammond/slackcat/blob/master/slackcat.go
 type SlackMsg struct {
-	Channel   string `json:"channel"`
-	Username  string `json:"username,omitempty"`
-	Text      string `json:"text"`
-	Parse     string `json:"parse"`
-	IconEmoji string `json:"icon_emoji,omitempty"`
+	Channel     string             `json:"channel"`
+	Username    string             `json:"username,omitempty"`
+	Text        string             `json:"text"`
+	Parse       string             `json:"parse"`
+	IconEmoji   string             `json:"icon_emoji,omitempty"`
+	Attachments []slack.Attachment `json:"attachments,omitempty"`
+	UnfurlLinks bool               `json:"unfurl_links,omitempty"`
 }
 
 func (m SlackMsg) Encode() (string, error) {
@@ -161,9 +164,15 @@ func (ph *pacemakerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() {
-		if alert.State != "OK" {
-			ph.alerts <- alert
+		if len(alert.State) == 0 {
+			log.Printf("[error]: Not posting to Slack, there is no state: %+v\n", alert)
+			return
 		}
+		if alert.State == "OK" {
+			log.Println("[info]: Not posting to Slack, state is:", alert.State)
+			return
+		}
+		ph.alerts <- alert
 	}()
 	w.Write([]byte("OK"))
 }
@@ -202,9 +211,31 @@ func SlackSender(config Config, alerts chan Alert) {
 	for {
 		alert := <-alerts
 		log.Printf("%+v\n", alert)
+		attachment := slack.Attachment{
+			Fallback: "Anomaly detected: " + alert.Check,
+			Color:    "#f9006c",
+			Title:    "Anomaly detected: " + alert.Check,
+			Fields: []slack.AttachmentField{
+				slack.AttachmentField{
+					Title: "Duration :triangular_flag_on_post:",
+					Value: "13m",
+					Short: true,
+				},
+				slack.AttachmentField{
+					Title: "Last alerted :leftwards_arrow_with_hook:",
+					Value: "3 days ago",
+					Short: true,
+				},
+				slack.AttachmentField{
+					Title: "Graph",
+					Value: "https://radalert.io/event/123456",
+					Short: false,
+				},
+			},
+		}
 		msg := SlackMsg{
-			Username: "Rad Alert",
-			Text:     "Anomaly detected for *'" + alert.Check + "'*",
+			Username:    "Rad Alert",
+			Attachments: []slack.Attachment{attachment},
 		}
 		err := msg.Post(config.SlackWebhookEndpoint)
 		if err != nil {
