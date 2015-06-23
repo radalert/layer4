@@ -3,13 +3,28 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/nlopes/slack"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
+
+var (
+	serverAddr string
+	once       sync.Once
+)
+
+func startServer() {
+	server := httptest.NewServer(nil)
+	serverAddr = server.Listener.Addr().String()
+	log.Print("Test WebSocket server listening on ", serverAddr)
+}
 
 // MockSlack is a fake Slack incoming webhook endpoint, for testing posts to Slack
 func MockSlack(t *testing.T, bind string, success chan bool) {
@@ -67,7 +82,25 @@ func TestAlertFromPacemaker(t *testing.T) {
 	}
 }
 
+func getSearchMessagesHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	response := []byte(`
+		{"ok": true, "query": "hello", "messages": {
+			"total":0,
+			"paging": {},
+			"matches": []
+		}}`)
+	w.Write(response)
+}
+
 func TestSlackSend(t *testing.T) {
+	// Setup mock Slack Web API
+	http.HandleFunc("/search.messages", getSearchMessagesHandler)
+	once.Do(startServer)
+	slack.SLACK_API = "http://" + serverAddr + "/"
+	api := slack.New("testing-token")
+	api.SetDebug(true)
+
 	// Setup mock Slack webhook endpoint
 	success := make(chan bool, 10)
 	go MockSlack(t, ":3456", success)
@@ -75,6 +108,7 @@ func TestSlackSend(t *testing.T) {
 	// Dispatch an alert
 	config := Config{
 		SlackWebhookEndpoint: "http://localhost:3456/services/ABC/123",
+		SlackApi:             api,
 	}
 	alerts := make(chan Alert, 10)
 	go SlackSender(config, alerts)
