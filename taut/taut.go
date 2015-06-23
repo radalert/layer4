@@ -261,6 +261,7 @@ func slackAnomalyAlert(config Config, alert Alert) slack.Attachment {
 			},
 			slack.AttachmentField{
 				Title: "Last alerted :repeat:",
+				// FIXME(auxesis): actually look up when the alert last fired
 				Value: "3 days ago",
 				Short: true,
 			},
