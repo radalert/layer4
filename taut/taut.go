@@ -21,6 +21,7 @@ type Config struct {
 	ListenBind           string
 	Timeout              time.Duration
 	SlackWebhookEndpoint string
+	SlackApi             *slack.Slack
 }
 
 // Courtesy of https://github.com/paulhammond/slackcat/blob/master/slackcat.go
@@ -207,35 +208,78 @@ func Listen(config Config, alerts chan Alert) {
 	log.Fatal(http.ListenAndServe(config.ListenBind, router))
 }
 
+func slackAlertHistory(config Config, alert Alert) slack.Attachment {
+	query := `"` + alert.Check + `"`
+	messages, _ := config.SlackApi.SearchMessages(query, slack.SearchParameters{})
+	var text string
+	if len(messages.Matches) > 0 {
+		items := []string{}
+		for i, match := range messages.Matches {
+			if i > 2 {
+				break
+			}
+			var item string
+			item += "*<" + match.Permalink + "|"
+			item += "2 hours ago> "
+			item += "_" + match.Username + "_"
+			item += " in #" + match.Channel.Name + ":* "
+			item += match.Text[3:len(match.Text)] // somehow emoji are being inserted here. trim them
+			items = append(items, item)
+		}
+		text = strings.Join(items, "\n")
+	} else {
+		text = "No history found for this alert."
+	}
+
+	attachment := slack.Attachment{
+		Color:      "#373736",
+		Title:      "History: " + alert.Check,
+		Text:       text,
+		MarkdownIn: []string{"text"},
+	}
+
+	return attachment
+}
+
+func slackAnomalyAlert(config Config, alert Alert) slack.Attachment {
+	return slack.Attachment{
+		Fallback: "Anomaly detected: " + alert.Check,
+		Color:    "#f9006c",
+		Title:    "Anomaly detected: " + alert.Check,
+		Fields: []slack.AttachmentField{
+			slack.AttachmentField{
+				Title: "Duration :triangular_flag_on_post:",
+				Value: "13m",
+				Short: true,
+			},
+			slack.AttachmentField{
+				Title: "Last alerted :leftwards_arrow_with_hook:",
+				Value: "3 days ago",
+				Short: true,
+			},
+			slack.AttachmentField{
+				Title: "Graph",
+				Value: "https://radalert.io/event/123456",
+				Short: false,
+			},
+		},
+	}
+}
+
 func SlackSender(config Config, alerts chan Alert) {
 	for {
 		alert := <-alerts
 		log.Printf("%+v\n", alert)
-		attachment := slack.Attachment{
-			Fallback: "Anomaly detected: " + alert.Check,
-			Color:    "#f9006c",
-			Title:    "Anomaly detected: " + alert.Check,
-			Fields: []slack.AttachmentField{
-				slack.AttachmentField{
-					Title: "Duration :triangular_flag_on_post:",
-					Value: "13m",
-					Short: true,
-				},
-				slack.AttachmentField{
-					Title: "Last alerted :leftwards_arrow_with_hook:",
-					Value: "3 days ago",
-					Short: true,
-				},
-				slack.AttachmentField{
-					Title: "Graph",
-					Value: "https://radalert.io/event/123456",
-					Short: false,
-				},
-			},
-		}
+
+		attachments := []slack.Attachment{}
+		anomalyAttachment := slackAnomalyAlert(config, alert)
+		attachments = append(attachments, anomalyAttachment)
+		historyAttachment := slackAlertHistory(config, alert)
+		attachments = append(attachments, historyAttachment)
+
 		msg := SlackMsg{
 			Username:    "Rad Alert",
-			Attachments: []slack.Attachment{attachment},
+			Attachments: attachments,
 		}
 		err := msg.Post(config.SlackWebhookEndpoint)
 		if err != nil {
@@ -255,6 +299,7 @@ func main() {
 	config := Config{
 		ListenBind:           ":8080",
 		SlackWebhookEndpoint: "https://hooks.slack.com/services/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",
+		SlackApi:             slack.New("xoxp-3032859045-3032859047-6683267184-9e01e6"),
 	}
 	go SlackSender(config, alerts)
 	Listen(config, alerts)
