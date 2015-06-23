@@ -252,7 +252,7 @@ func slackAnomalyAlert(config Config, alert Alert) slack.Attachment {
 		Color:    "#f9006c",
 		Title:    "Anomaly detected: " + alert.Check,
 		// TODO(auxesis): include graph of anomaly
-		//ImageURL: "http://i.imgur.com/BYCmqEG.gif",
+		// ImageURL: "",
 		Fields: []slack.AttachmentField{
 			slack.AttachmentField{
 				Title: "Started :running:",
