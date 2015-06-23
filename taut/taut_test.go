@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// MockSlack is a fake Slack incoming webhook endpoint, for testing posts to Slack
 func MockSlack(t *testing.T, bind string, success chan bool) {
 	http.HandleFunc("/services/ABC/123", func(w http.ResponseWriter, r *http.Request) {
 		body, _ := ioutil.ReadAll(r.Body)
