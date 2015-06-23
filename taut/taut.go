@@ -279,10 +279,8 @@ func SlackSender(config Config, alerts chan Alert) {
 		attachments := []slack.Attachment{}
 		anomalyAttachment := slackAnomalyAlert(config, alert)
 		attachments = append(attachments, anomalyAttachment)
-		/*
-			historyAttachment := slackAlertHistory(config, alert)
-			attachments = append(attachments, historyAttachment)
-		*/
+		historyAttachment := slackAlertHistory(config, alert)
+		attachments = append(attachments, historyAttachment)
 
 		msg := SlackMsg{
 			Username:    "Rad Alert",
