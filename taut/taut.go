@@ -5,6 +5,7 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
+	"github.com/dustin/go-humanize"
 	"github.com/nlopes/slack"
 	"gopkg.in/alecthomas/kingpin.v1"
 	"io/ioutil"
@@ -208,7 +209,9 @@ func Listen(config Config, alerts chan Alert) {
 	log.Fatal(http.ListenAndServe(config.ListenBind, router))
 }
 
+// slackAlertHistory searches Slack history for previous occurances of this the alert
 func slackAlertHistory(config Config, alert Alert) slack.Attachment {
+	// FIXME(auxesis): should wrap this in a function that times out after 10 seconds
 	query := `"` + alert.Check + `"`
 	messages, _ := config.SlackApi.SearchMessages(query, slack.SearchParameters{})
 	var text string
@@ -242,28 +245,29 @@ func slackAlertHistory(config Config, alert Alert) slack.Attachment {
 }
 
 func slackAnomalyAlert(config Config, alert Alert) slack.Attachment {
-	return slack.Attachment{
+	t := time.Unix(alert.AnomalyStart, 0)
+
+	attachment := slack.Attachment{
 		Fallback: "Anomaly detected: " + alert.Check,
 		Color:    "#f9006c",
 		Title:    "Anomaly detected: " + alert.Check,
+		// TODO(auxesis): include graph of anomaly
+		//ImageURL: "http://i.imgur.com/BYCmqEG.gif",
 		Fields: []slack.AttachmentField{
 			slack.AttachmentField{
-				Title: "Duration :triangular_flag_on_post:",
-				Value: "13m",
+				Title: "Started :running:",
+				Value: humanize.Time(t),
 				Short: true,
 			},
 			slack.AttachmentField{
-				Title: "Last alerted :leftwards_arrow_with_hook:",
+				Title: "Last alerted :repeat:",
 				Value: "3 days ago",
 				Short: true,
 			},
-			slack.AttachmentField{
-				Title: "Graph",
-				Value: "https://radalert.io/event/123456",
-				Short: false,
-			},
 		},
 	}
+
+	return attachment
 }
 
 func SlackSender(config Config, alerts chan Alert) {
@@ -274,8 +278,10 @@ func SlackSender(config Config, alerts chan Alert) {
 		attachments := []slack.Attachment{}
 		anomalyAttachment := slackAnomalyAlert(config, alert)
 		attachments = append(attachments, anomalyAttachment)
-		historyAttachment := slackAlertHistory(config, alert)
-		attachments = append(attachments, historyAttachment)
+		/*
+			historyAttachment := slackAlertHistory(config, alert)
+			attachments = append(attachments, historyAttachment)
+		*/
 
 		msg := SlackMsg{
 			Username:    "Rad Alert",

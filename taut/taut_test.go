@@ -37,7 +37,7 @@ func TestAlertFromPacemaker(t *testing.T) {
 		State:        "CRITICAL",
 		Org:          "MyCo",
 		Check:        "shizzle.com/health",
-		AnomalyStart: 180,
+		AnomalyStart: 1434972584,
 		Tags:         []string{"shizzle", "health"},
 	}
 	body, err := json.Marshal(alert)
@@ -80,7 +80,7 @@ func TestSlackSend(t *testing.T) {
 	alerts <- Alert{
 		Org:          "MyCo",
 		Check:        "shizzle.com/health",
-		AnomalyStart: 180,
+		AnomalyStart: 1434972584,
 		Tags:         []string{"shizzle", "health"},
 	}
 
